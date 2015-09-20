@@ -18,3 +18,4 @@ target_link_libraries(bs_tester ${bitmap_lib})
 set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Werror -O3")
 
 add_executable(generate_drive src/generate_drive.cpp)
+

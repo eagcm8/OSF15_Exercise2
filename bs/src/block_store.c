@@ -26,6 +26,8 @@ size_t utility_read_file(const int fd, uint8_t *buffer, const size_t count);
 // Exactly the same as read, but we're writing count from buffer to fd
 size_t utility_write_file(const int fd, const uint8_t *buffer, const size_t count);
 
+
+
 // The magical glue that holds it all together
 struct block_store {
     bitmap_t *dbm;
@@ -37,9 +39,14 @@ struct block_store {
 };
 
 // TODO: Comment
+//PURPOSE: Create a new block_store and return it's pointer
+//INPUT: none
+//RETURN: pointer to new bitmap
 block_store_t *block_store_create() {
     block_store_t *bs = malloc(sizeof(block_store_t));
+	//check if memory was correctly allocated
     if (bs) {
+	//create new bitmap, assign to bs->fbm
         bs->fbm = bitmap_create(BLOCK_COUNT);
         if (bs->fbm) {
             bs->dbm = bitmap_create(BLOCK_COUNT);
@@ -48,12 +55,16 @@ block_store_t *block_store_create() {
                 bs->data_blocks = calloc(BLOCK_SIZE, BLOCK_COUNT - FBM_SIZE);
                 if (bs->data_blocks) {
                     for (size_t idx = 0; idx < FBM_SIZE; ++idx) {
+			//use functions for everything, even setting bitmap values
+			//set all bits to 1
                         bitmap_set(bs->fbm, idx);
                         bitmap_set(bs->dbm, idx);
                     }
                     block_store_errno = BS_OK;
+			//OK
                     return bs;
                 }
+		//memory cleanup, method failed
                 bitmap_destroy(bs->dbm);
             }
             bitmap_destroy(bs->fbm);
@@ -65,8 +76,13 @@ block_store_t *block_store_create() {
 }
 
 // TODO: Comment
+//PURPOSE: Destroy an existing block store instance
+//INPUT: pointer to existing block store. It const because all destroying will be performed on the contents of the pointer, and the pointer itself will not and should not be modified
+//RETURN: void
 void block_store_destroy(block_store_t *const bs) {
+	//is input null?
     if (bs) {
+	//clear out everything
         bitmap_destroy(bs->fbm);
         bs->fbm = NULL;
         bitmap_destroy(bs->dbm);
@@ -81,9 +97,12 @@ void block_store_destroy(block_store_t *const bs) {
 }
 
 // TODO: Comment
+//PURPOSE: Finds a free block and uses it for a new block store allocation
+//INPUT:   pointer to block store to be allocated
+//RETURN:  size_t containing the location  
 size_t block_store_allocate(block_store_t *const bs) {
     if (bs && bs->fbm) {
-        size_t free_block = bitmap_ffz(bs->fbm);
+        size_t free_block = bitmap_ffz(bs->fbm); //ffz = find first zero. Returns location of bit
         if (free_block != SIZE_MAX) {
             bitmap_set(bs->fbm, free_block);
             // not going to mark dbm because there's no change (yet)
@@ -115,6 +134,11 @@ size_t block_store_allocate(block_store_t *const bs) {
 */
 
 // TODO: Comment
+//PURPOSE: frees a block in a block storage
+//INPUT: block storage device
+//the specific block to free from the block storage
+//RETURN: 0 if null
+//the block_id if sucess
 size_t block_store_release(block_store_t *const bs, const size_t block_id) {
     if (bs && bs->fbm && BLOCKID_VALID(block_id)) {
         // we could clear the dirty bit, since the info is no longer in use but...
@@ -130,6 +154,15 @@ size_t block_store_release(block_store_t *const bs, const size_t block_id) {
 }
 
 // TODO: Comment
+//PURPOSE: read a number of bytes from a block storage
+//INPUT: const ptr to block storage
+//the block_id of block to read
+//void ptr to buffer to copy to
+//number of bytes to copy
+//offset of first byte
+//RETURN: 0 if there was an error
+//the number of bytes to copy if no error
+
 size_t block_store_read(const block_store_t *const bs, const size_t block_id, void *buffer, const size_t nbytes, const size_t offset) {
     if (bs && bs->fbm && bs->data_blocks && BLOCKID_VALID(block_id)
             && buffer && nbytes && (nbytes + offset <= BLOCK_SIZE)) {
@@ -151,7 +184,48 @@ size_t block_store_read(const block_store_t *const bs, const size_t block_id, vo
 // Pretty easy, actually
 // Gotta remember to mess with the DBM!
 // Let's allow writing to blocks not marked as in use as well, but log it like with read
+
+//PURPOSE: read bytes from a buffer and write it to a block
+//INPUT: ptr to block store to copy to
+//destination block id
+//buffer to copy from
+//number of bytes to copy
+//offset of first byte
+//RETURN: size_t of numner of bytes copied if success
+//0 if failed
 size_t block_store_write(block_store_t *const bs, const size_t block_id, const void *buffer, const size_t nbytes, const size_t offset) {
+
+	/*
+	psuedocode that isn't used in my actuall function
+	just used this to think things through
+	size_t index     		= block_id + offset
+	size_t lastIndex 		= index + nbytes * 8
+	size_t bytes_written 		= 0;
+	
+	//copy byte by byte, or bit by bit?
+	//this is 'supposed' to copy byte by byte
+	while(index < lastIndex)
+		lastIndex += 8
+		memcpy(buffer -> bs.fdm)
+		memcpy(bs.fdm -> bs.dbm)
+		bytes_written += 1
+	
+	return bytes_written
+	*/
+
+
+	//paramater check
+	if (bs && bs->fbm && bs->data_blocks && BLOCKID_VALID(block_id)
+		    && buffer && nbytes && (nbytes + offset <= BLOCK_SIZE)) {
+		size_t total_offset = offset + (BLOCK_SIZE * (block_id - FBM_SIZE));
+
+		//this function is very similar to block_store_read, but in here, the first two parameters of memcpy are flipped
+		memcpy((void *)(bs->data_blocks + total_offset), buffer, nbytes);
+		block_store_errno = bitmap_test(bs->fbm, block_id) ? BS_OK : BS_FBM_REQUEST_MISMATCH;
+		return nbytes;
+	    }
+	    block_store_errno = BS_PARAM;
+	    return 0;
     block_store_errno = BS_FATAL;
     return 0;
 }
@@ -164,12 +238,41 @@ size_t block_store_write(block_store_t *const bs, const size_t block_id, const v
 // There should be POSIX stuff for everything file-related
 // Probably going to have a lot of resource management, better be careful
 // Lots of different errors can happen
+
+//PURPOSE: reads a block store from a file
+//INPUT: c-string of filename
+//RETURN: block store of newly imported block store
 block_store_t *block_store_import(const char *const filename) {
+	block_store_t *bs 	= block_store_create();
+		if(!bs) {
+			return NULL;
+		}
+	
+	
+	    if (filename && strlen(filename) > 0 && strlen(filename) < 100) {
+		const int fd = open(filename, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP);
+
+		if (fd != -1) {
+		    
+			block_store_errno = BS_OK;
+			close(fd);
+			return bs;
+
+		}
+		block_store_errno = BS_FILE_ACCESS;
+		return NULL;
+	    }
     block_store_errno = BS_FATAL;
     return NULL;
 }
 
 // TODO: Comment
+
+//PURPOSE: write a block store to an output file
+//INPUT: block store to copy from
+//c-string of the filename
+//RETURN: 0 if failed
+//total number of blocks exported to the file
 size_t block_store_export(const block_store_t *const bs, const char *const filename) {
     // Thankfully, this is less of a mess than import...
     // we're going to ignore dbm, we'll treat export like it's making a new copy of the drive
@@ -195,6 +298,10 @@ size_t block_store_export(const block_store_t *const bs, const char *const filen
 }
 
 // TODO: Comment
+
+//PURPOSE: Convert a block_store_status error message into a human readable string
+//INPUT: the block_store_status to be converted
+//RETURN: string of human readable message
 const char *block_store_strerror(block_store_status bs_err) {
     switch (bs_err) {
         case BS_OK:
@@ -236,10 +343,62 @@ const char *block_store_strerror(block_store_status bs_err) {
 //   I guess a new export will fix that?
 
 
+// TODO: Implement, comment, param check
+// It needs to read count bytes from fd into buffer
+// Probably a good idea to handle EINTR
+// Maybe do a block-based read? It's more efficient, but it's more complex
+// Return number of bytes read if it all worked (should always be count)
+//  and 0 on error (can only really be a major disaster file error)
+// There should be POSIX stuff for this somewhere
+
+//PURPOSE: utility function to make it easier to read a file
+//INPUT: a file descriptor fd
+//buffer copying to
+//count copying the number of bytes
+//RETURN: size_t containing the size of the bytes read
 size_t utility_read_file(const int fd, uint8_t *buffer, const size_t count) {
+
+	if(!(buffer)) {
+		return 0;
+	}
+	if(count == 0) {
+		return 0;
+	}
+	
+	size_t read_return = read(fd, buffer, count);
+	if(read_return == 0){
+		//printf("Error");
+		return 0;
+	}
+	return read_return;
+
+	
     return 0;
 }
 
+
+//PURPOSE: utility function to make it easier to write a file
+//INPUT: a file descriptor fd
+//buffer copying from
+//count copying the number of bytes
+//RETURN: size_t containing the size of the bytes written
 size_t utility_write_file(const int fd, const uint8_t *buffer, const size_t count) {
+    if(!(buffer)) {
+		return 0;
+	}
+	if(count == 0) {
+		return 0;
+	}
+	
+	size_t write_return = write(fd, buffer, count);
+	if(write_return == 0){
+		//printf("Error");
+		return 0;
+	}
+	return write_return;
+
+	
     return 0;
 }
+
+
