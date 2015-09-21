@@ -37,6 +37,12 @@ struct block_store {
 };
 
 // TODO: Comment
+/* 
+ * PURPOSE:
+ * INPUTS: 
+ * RETURN:
+ *
+ **/
 block_store_t *block_store_create() {
     block_store_t *bs = malloc(sizeof(block_store_t));
     if (bs) {
@@ -65,6 +71,11 @@ block_store_t *block_store_create() {
 }
 
 // TODO: Comment
+/* 
+ * PURPOSE:
+ * INPUTS: 
+ * RETURN:
+ **/
 void block_store_destroy(block_store_t *const bs) {
     if (bs) {
         bitmap_destroy(bs->fbm);
@@ -154,6 +165,10 @@ size_t block_store_write(block_store_t *const bs, const size_t block_id, const u
     return 0;
 }
 
+
+
+
+
 // TODO: Implement, comment, param check
 // Gotta make a new BS object and read it from the file
 // Need to remember to get the file format right, where's the FBM??
@@ -162,7 +177,56 @@ size_t block_store_write(block_store_t *const bs, const size_t block_id, const u
 // There should be POSIX stuff for everything file-related
 // Probably going to have a lot of resource management, better be careful
 // Lots of different errors can happen
+
+//make new blockstore object and return
 block_store_t *block_store_import(const char *const filename) {
+    block_store_t *bs = block_store_create(); //create blockstore bs
+    if(bs){
+        bitmap_destroy(bs -> fbm); //destroy fbm in bs
+        bitmap_format(bs -> dbm, 0); //format dbm in bs
+        struct stat file_info; //
+        size_t urf = 0;
+        if(stat(filename, &file_info) != -1){
+            if(file_info.st_size == BLOCK_SIZE * BLOCK_COUNT){
+                int fd;
+                fd = open(filename, O_RDONLY);
+                if(fd != -1){
+                    size_t ct = FBM_SIZE * BLOCK_SIZE;
+                    urf = utility_read_file(fd, bs -> data_blocks, ct);
+                    if (urf)
+                    {
+                        bs -> fbm = bitmap_import(BLOCK_COUNT, bs -> data_blocks);
+                        if (bs -> fbm)
+                        {
+                            ct = (BLOCK_COUNT - FBM_SIZE) * BLOCK_SIZE;
+                            urf = utility_read_file(fd, bs -> data_blocks, ct);
+                            if (urf)
+                            {
+                                block_store_errno = BS_OK;
+                                close(fd);
+                            }return 0;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+
+
+// struct stat {
+//                dev_t     st_dev;         /* ID of device containing file */
+//                ino_t     st_ino;         /* inode number */
+//                mode_t    st_mode;        /* protection */
+//                nlink_t   st_nlink;       /* number of hard links */
+//                uid_t     st_uid;         /* user ID of owner */
+//                gid_t     st_gid;         /* group ID of owner */
+//                dev_t     st_rdev;        /* device ID (if special file) */
+//                off_t     st_size;        /* total size, in bytes */
+//                blksize_t st_blksize;     /* blocksize for filesystem I/O */
+//                blkcnt_t  st_blocks;      /* number of 512B blocks allocated */
+
+
     block_store_errno = BS_FATAL;
     return NULL;
 }
@@ -235,9 +299,35 @@ const char *block_store_strerror(block_store_status bs_err) {
 
 
 size_t utility_read_file(const int fd, uint8_t *buffer, const size_t count) {
+    size_t amount_read = 0;
+    do
+    {
+        ssize_t readfile = read(fd, buffer+amount_read, count-amount_read);
+        if (readfile == -1)
+        {
+            if (errno == EINTR)
+            {
+                continue;
+            }return 0;
+        } amount_read += readfile;
+    } while (amount_read < count);
+    
     return 0;
 }
 
 size_t utility_write_file(const int fd, const uint8_t *buffer, const size_t count) {
+    size_t amount_read = 0;
+    do
+    {
+        ssize_t writefile = write(fd, buffer+amount_read, count-amount_read);
+        if (writefile == -1)
+        {
+            if (errno == EINTR)
+            {
+                continue;
+            }return 0;
+        } amount_read += writefile;
+    } while (amount_read < count);
+    
     return 0;
 }
