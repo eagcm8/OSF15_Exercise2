@@ -72,9 +72,9 @@ block_store_t *block_store_create() {
 
 // TODO: Comment
 /* 
- * PURPOSE:
- * INPUTS: 
- * RETURN:
+ * PURPOSE: destroys block store
+ * INPUTS: bs (block store)
+ * RETURN: nothing
  **/
 void block_store_destroy(block_store_t *const bs) {
     if (bs) {
@@ -91,6 +91,11 @@ void block_store_destroy(block_store_t *const bs) {
 }
 
 // TODO: Comment
+/* 
+ * PURPOSE: allocates block store
+ * INPUTS: bs (block store)
+ * RETURN: size_t 0 if success
+ **/
 size_t block_store_allocate(block_store_t *const bs) {
     if (bs && bs->fbm) {
         size_t free_block = bitmap_ffz(bs->fbm);
@@ -125,6 +130,11 @@ size_t block_store_allocate(block_store_t *const bs) {
 */
 
 // TODO: Comment
+    /* 
+ * PURPOSE: formats/ clears blocks
+ * INPUTS: bs (block store), size_t block_id
+ * RETURN: size_t 0 if success
+ **/
 size_t block_store_release(block_store_t *const bs, const size_t block_id) {
     if (bs && bs->fbm && BLOCKID_VALID(block_id)) {
         // we could clear the dirty bit, since the info is no longer in use but...
@@ -140,6 +150,11 @@ size_t block_store_release(block_store_t *const bs, const size_t block_id) {
 }
 
 // TODO: Comment
+    /* 
+ * PURPOSE: reads block store
+ * INPUTS: bs (block store), size_t block_id, uint8_t buffer pointer, size_t nbytes, size_t offset
+ * RETURN: size_t 0 if success
+ **/
 size_t block_store_read(const block_store_t *const bs, const size_t block_id, const uint8_t *buffer, const size_t nbytes, const size_t offset) {
     if (bs && bs->fbm && bs->data_blocks && BLOCKID_VALID(block_id)
             && buffer && nbytes && (nbytes + offset <= BLOCK_SIZE)) {
@@ -160,6 +175,11 @@ size_t block_store_read(const block_store_t *const bs, const size_t block_id, co
 // Pretty easy, actually
 // Gotta remember to mess with the DBM!
 // Let's allow writing to blocks not marked as in use as well, but log it like with read
+    /* 
+ * PURPOSE: writes block store
+ * INPUTS: bs (block store), size_t block_id, uint8_t buffer pointer, size_t nbytes, size_t offset
+ * RETURN: size_t 0 if success
+ **/
 size_t block_store_write(block_store_t *const bs, const size_t block_id, const uint8_t *buffer, const size_t nbytes, const size_t offset) {
     block_store_errno = BS_FATAL;
     return 0;
@@ -179,6 +199,11 @@ size_t block_store_write(block_store_t *const bs, const size_t block_id, const u
 // Lots of different errors can happen
 
 //make new blockstore object and return
+    /* 
+ * PURPOSE: imports block store
+ * INPUTS: char, filename
+ * RETURN: block_store_t
+ **/
 block_store_t *block_store_import(const char *const filename) {
     block_store_t *bs = block_store_create(); //create blockstore bs
     if(bs){
@@ -232,6 +257,11 @@ block_store_t *block_store_import(const char *const filename) {
 }
 
 // TODO: Comment
+    /* 
+ * PURPOSE: exports block store
+ * INPUTS: bs (block store), block_store_t, char, filename
+ * RETURN: size_t 0 if success
+ **/
 size_t block_store_export(const block_store_t *const bs, const char *const filename) {
     // Thankfully, this is less of a mess than import...
     // we're going to ignore dbm, we'll treat export like it's making a new copy of the drive
@@ -257,6 +287,11 @@ size_t block_store_export(const block_store_t *const bs, const char *const filen
 }
 
 // TODO: Comment
+    /* 
+ * PURPOSE: returns block store error codes
+ * INPUTS: block_store_status bs_err
+ * RETURN: character array
+ **/
 const char *block_store_strerror(block_store_status bs_err) {
     switch (bs_err) {
         case BS_OK:
@@ -298,6 +333,11 @@ const char *block_store_strerror(block_store_status bs_err) {
 //   I guess a new export will fix that?
 
 
+    /* 
+ * PURPOSE: reads in file
+ * INPUTS: fd (file descriptor), buffer pointer, count
+ * RETURN: size_t 0 if success
+ **/
 size_t utility_read_file(const int fd, uint8_t *buffer, const size_t count) {
     size_t amount_read = 0;
     do
@@ -315,6 +355,11 @@ size_t utility_read_file(const int fd, uint8_t *buffer, const size_t count) {
     return 0;
 }
 
+    /* 
+ * PURPOSE: writes in file
+ * INPUTS: fd (file descriptor), buffer pointer, count
+ * RETURN: size_t 0 if success
+ **/
 size_t utility_write_file(const int fd, const uint8_t *buffer, const size_t count) {
     size_t amount_read = 0;
     do
